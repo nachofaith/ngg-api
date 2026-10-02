@@ -2,6 +2,7 @@ import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
+import rateLimit from "@fastify/rate-limit";
 import registerRoutes from "./routes/index.js";
 
 const fastify = Fastify({
@@ -19,6 +20,12 @@ async function main() {
   });
 
   await fastify.register(cookie);
+
+  await fastify.register(rateLimit, {
+    global: true,
+    max: 100,
+    timeWindow: "1 minute",
+  });
 
   await fastify.register(registerRoutes);
 
