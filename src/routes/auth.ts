@@ -69,89 +69,102 @@ export default async function authRoutes(fastify: FastifyInstance) {
     },
   );
 
-  fastify.post("/register", async (request, reply) => {
-    const { token, password } = request.body as {
-      token?: string;
-      password?: string;
-    };
+  fastify.post(
+    "/register",
 
-    if (!token || !password) {
-      return reply
-        .status(400)
-        .send({ error: "Token y password son requeridos" });
-    }
+    {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: "1 minute",
+        },
+      },
+    },
 
-    if (password.length < 8) {
-      return reply
-        .status(400)
-        .send({ error: "La contraseña debe tener al menos 8 caracteres" });
-    }
+    async (request, reply) => {
+      const { token, password } = request.body as {
+        token?: string;
+        password?: string;
+      };
 
-    const [invitation] = await db
-      .select()
-      .from(invitations)
-      .where(eq(invitations.token, token));
+      if (!token || !password) {
+        return reply
+          .status(400)
+          .send({ error: "Token y password son requeridos" });
+      }
 
-    if (!invitation) {
-      return reply.status(404).send({ error: "Invitación no encontrada" });
-    }
+      if (password.length < 8) {
+        return reply
+          .status(400)
+          .send({ error: "La contraseña debe tener al menos 8 caracteres" });
+      }
 
-    if (invitation.usedAt) {
-      return reply
-        .status(410)
-        .send({ error: "Esta invitación ya fue utilizada" });
-    }
+      const [invitation] = await db
+        .select()
+        .from(invitations)
+        .where(eq(invitations.token, token));
 
-    if (invitation.expiresAt < new Date()) {
-      return reply.status(410).send({ error: "Esta invitación ha expirado" });
-    }
+      if (!invitation) {
+        return reply.status(404).send({ error: "Invitación no encontrada" });
+      }
 
-    const [existingUser] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, invitation.email));
+      if (invitation.usedAt) {
+        return reply
+          .status(410)
+          .send({ error: "Esta invitación ya fue utilizada" });
+      }
 
-    if (existingUser) {
-      return reply
-        .status(409)
-        .send({ error: "Ya existe una cuenta con este email" });
-    }
+      if (invitation.expiresAt < new Date()) {
+        return reply.status(410).send({ error: "Esta invitación ha expirado" });
+      }
 
-    const passwordHash = await hashPassword(password);
+      const [existingUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, invitation.email));
 
-    const [newUser] = await db
-      .insert(users)
-      .values({
-        email: invitation.email,
-        passwordHash,
-        role: invitation.role,
-      })
-      .returning();
+      if (existingUser) {
+        return reply
+          .status(409)
+          .send({ error: "Ya existe una cuenta con este email" });
+      }
 
-    await db
-      .update(invitations)
-      .set({ usedAt: new Date() })
-      .where(eq(invitations.id, invitation.id));
+      const passwordHash = await hashPassword(password);
 
-    const jwtToken = jwt.sign(
-      { userId: newUser.id, email: newUser.email, role: newUser.role },
-      JWT_SECRET,
-      { expiresIn: "7d" },
-    );
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          email: invitation.email,
+          passwordHash,
+          role: invitation.role,
+        })
+        .returning();
 
-    reply.setCookie("session", jwtToken, {
-      domain: COOKIE_DOMAIN,
-      path: "/",
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+      await db
+        .update(invitations)
+        .set({ usedAt: new Date() })
+        .where(eq(invitations.id, invitation.id));
 
-    return reply.status(201).send({
-      user: { id: newUser.id, email: newUser.email, role: newUser.role },
-    });
-  });
+      const jwtToken = jwt.sign(
+        { userId: newUser.id, email: newUser.email, role: newUser.role },
+        JWT_SECRET,
+        { expiresIn: "7d" },
+      );
+
+      reply.setCookie("session", jwtToken, {
+        domain: COOKIE_DOMAIN,
+        path: "/",
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7,
+      });
+
+      return reply.status(201).send({
+        user: { id: newUser.id, email: newUser.email, role: newUser.role },
+      });
+    },
+  );
 
   fastify.get("/me", async (request, reply) => {
     const token = request.cookies.session;

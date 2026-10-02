@@ -3,6 +3,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
+import helmet from "@fastify/helmet";
 import registerRoutes from "./routes/index.js";
 
 const fastify = Fastify({
@@ -14,6 +15,8 @@ const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN!;
 const PORT = Number(process.env.PORT) || 4000;
 
 async function main() {
+  await fastify.register(helmet);
+
   await fastify.register(cors, {
     origin: FRONTEND_ORIGIN,
     credentials: true,
