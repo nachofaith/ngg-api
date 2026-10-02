@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { randomBytes } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { invitations } from "../db/schema.js";
 import { requireAdmin, type SessionPayload } from "../utils/auth-guards.js";
@@ -25,7 +25,7 @@ export default async function invitationRoutes(fastify: FastifyInstance) {
       const finalRole = role === "admin" ? "admin" : "user";
       const token = randomBytes(32).toString("hex");
       const expiresAt = new Date(
-        Date.now() + INVITATION_EXPIRY_HOURS * 60 * 60 * 1000
+        Date.now() + INVITATION_EXPIRY_HOURS * 60 * 60 * 1000,
       );
       const currentUser = (request as any).user as SessionPayload;
 
@@ -40,29 +40,56 @@ export default async function invitationRoutes(fastify: FastifyInstance) {
       const inviteLink = `${FRONTEND_ORIGIN}/register?token=${token}`;
 
       return reply.status(201).send({ inviteLink, expiresAt });
-    }
+    },
   );
 
-  fastify.get("/invitations/:token", async (request, reply) => {
-    const { token } = request.params as { token: string };
+  // Listar invitaciones pendientes (no usadas, no expiradas)
+  fastify.get(
+    "/invitations",
+    { preHandler: requireAdmin },
+    async (_request, reply) => {
+      const allInvitations = await db
+        .select({
+          id: invitations.id,
+          email: invitations.email,
+          role: invitations.role,
+          expiresAt: invitations.expiresAt,
+          usedAt: invitations.usedAt,
+          createdAt: invitations.createdAt,
+        })
+        .from(invitations)
+        .where(isNull(invitations.usedAt));
 
-    const [invitation] = await db
-      .select()
-      .from(invitations)
-      .where(eq(invitations.token, token));
+      return reply.send({ invitations: allInvitations });
+    },
+  );
 
-    if (!invitation) {
-      return reply.status(404).send({ error: "Invitación no encontrada" });
-    }
+  // Revocar (eliminar) una invitación pendiente
+  fastify.delete(
+    "/invitations/:id",
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const invitationId = Number(id);
 
-    if (invitation.usedAt) {
-      return reply.status(410).send({ error: "Esta invitación ya fue utilizada" });
-    }
+      const [invitation] = await db
+        .select()
+        .from(invitations)
+        .where(eq(invitations.id, invitationId));
 
-    if (invitation.expiresAt < new Date()) {
-      return reply.status(410).send({ error: "Esta invitación ha expirado" });
-    }
+      if (!invitation) {
+        return reply.status(404).send({ error: "Invitación no encontrada" });
+      }
 
-    return reply.send({ email: invitation.email });
-  });
+      if (invitation.usedAt) {
+        return reply
+          .status(400)
+          .send({ error: "No se puede revocar una invitación ya utilizada" });
+      }
+
+      await db.delete(invitations).where(eq(invitations.id, invitationId));
+
+      return reply.send({ ok: true });
+    },
+  );
 }

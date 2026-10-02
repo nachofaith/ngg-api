@@ -39,12 +39,20 @@ export default async function authRoutes(fastify: FastifyInstance) {
         .where(eq(users.email, email));
 
       if (!user) {
+        fastify.log.warn(
+          { email, ip: request.ip },
+          "Intento de login fallido: usuario no existe",
+        );
         return reply.status(401).send({ error: "Credenciales inválidas" });
       }
 
       const isValid = await comparePassword(password, user.passwordHash);
 
       if (!isValid) {
+        fastify.log.warn(
+          { email, ip: request.ip },
+          "Intento de login fallido: password incorrecta",
+        );
         return reply.status(401).send({ error: "Credenciales inválidas" });
       }
 
