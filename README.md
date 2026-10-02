@@ -24,21 +24,23 @@ npm install
 ## Configuración
 
 1. Copia el archivo de ejemplo:
+
 ```bash
    cp .env.example .env
 ```
 
 2. Completa las variables en `.env`:
 
-   | Variable | Descripción |
-   |---|---|
-   | `DATABASE_URL` | Cadena de conexión a PostgreSQL |
-   | `JWT_SECRET` | Secret para firmar JWT. Genera uno con `openssl rand -base64 48` |
-   | `COOKIE_DOMAIN` | Dominio donde se setea la cookie de sesión |
-   | `FRONTEND_ORIGIN` | Origen exacto permitido por CORS (protocolo + dominio + puerto) |
-   | `PORT` | Puerto donde corre el servidor (default: 4000) |
-   | `NODE_ENV` | `development` o `production`. En producción, las cookies requieren HTTPS |
-   | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | Credenciales del admin inicial (solo para el seed) |
+   | Variable                                   | Descripción                                                              |
+   | ------------------------------------------ | ------------------------------------------------------------------------ |
+   | `DATABASE_URL`                             | Cadena de conexión a PostgreSQL                                          |
+   | `JWT_SECRET`                               | Secret para firmar JWT. Genera uno con `openssl rand -base64 48`         |
+   | `COOKIE_DOMAIN`                            | Dominio donde se setea la cookie de sesión                               |
+   | `FRONTEND_ORIGIN`                          | Origen exacto permitido por CORS (protocolo + dominio + puerto)          |
+   | `PORT`                                     | Puerto donde corre el servidor (default: 4000)                           |
+   | `NODE_ENV`                                 | `development` o `production`. En producción, las cookies requieren HTTPS |
+   | `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | Credenciales del admin inicial (solo para el seed)                       |
+
 
 ### Desarrollo local con dominios personalizados
 
@@ -50,7 +52,6 @@ Como las cookies dependen de dominios reales (no funcionan igual con `localhost`
 Agrega:
 127.0.0.1 api.tudominio.cl
 127.0.0.1 login.tudominio.cl
-
 
 Y usa esos dominios (con el puerto correspondiente) en tu navegador y en `FRONTEND_ORIGIN`/`COOKIE_DOMAIN`, en vez de `localhost`.
 
@@ -96,17 +97,17 @@ npm start
 
 ## Endpoints
 
-| Método | Ruta | Descripción | Protección |
-|---|---|---|---|
-| POST | `/login` | Inicia sesión | Público |
-| GET | `/me` | Verifica la sesión actual | Requiere sesión |
-| POST | `/logout` | Cierra sesión | Público |
-| POST | `/register` | Crea una cuenta usando un token de invitación | Público (requiere token válido) |
-| POST | `/invitations` | Genera una invitación para registro | Solo admin |
-| GET | `/invitations/:token` | Valida un token de invitación | Público |
-| GET | `/users` | Lista todos los usuarios | Solo admin |
-| PATCH | `/users/:id` | Cambia el rol de un usuario | Solo admin |
-| DELETE | `/users/:id` | Elimina un usuario | Solo admin |
+| Método | Ruta                  | Descripción                                   | Protección                      |
+| ------ | --------------------- | --------------------------------------------- | ------------------------------- |
+| POST   | `/login`              | Inicia sesión                                 | Público                         |
+| GET    | `/me`                 | Verifica la sesión actual                     | Requiere sesión                 |
+| POST   | `/logout`             | Cierra sesión                                 | Público                         |
+| POST   | `/register`           | Crea una cuenta usando un token de invitación | Público (requiere token válido) |
+| POST   | `/invitations`        | Genera una invitación para registro           | Solo admin                      |
+| GET    | `/invitations/:token` | Valida un token de invitación                 | Público                         |
+| GET    | `/users`              | Lista todos los usuarios                      | Solo admin                      |
+| PATCH  | `/users/:id`          | Cambia el rol de un usuario                   | Solo admin                      |
+| DELETE | `/users/:id`          | Elimina un usuario                            | Solo admin                      |
 
 ## Notas de seguridad
 
