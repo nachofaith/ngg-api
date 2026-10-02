@@ -6,6 +6,7 @@ import registerRoutes from "./routes/index.js";
 
 const fastify = Fastify({
   logger: true,
+  trustProxy: true,
 });
 
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN!;
