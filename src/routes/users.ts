@@ -3,6 +3,7 @@ import { eq, ne, and } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { users } from "../db/schema.js";
 import { requireAdmin, type SessionPayload } from "../utils/auth-guards.js";
+import { parseId } from "../utils/validations.js";
 
 export default async function userRoutes(fastify: FastifyInstance) {
   // Listar todos los usuarios
@@ -20,7 +21,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
         .from(users);
 
       return reply.send({ users: allUsers });
-    }
+    },
   );
 
   // Cambiar el rol de un usuario
@@ -31,17 +32,27 @@ export default async function userRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       const { role } = request.body as { role?: "admin" | "user" };
       const currentUser = (request as any).user as SessionPayload;
-      const targetId = Number(id);
+
+      const targetId = parseId(id);
+
+      if (targetId === null) {
+        return reply.status(400).send({ error: "ID inválido" });
+      }
 
       if (!role || (role !== "admin" && role !== "user")) {
         return reply.status(400).send({ error: "Rol inválido" });
       }
 
       if (targetId === currentUser.userId) {
-        return reply.status(400).send({ error: "No puedes cambiar tu propio rol" });
+        return reply
+          .status(400)
+          .send({ error: "No puedes cambiar tu propio rol" });
       }
 
-      const [targetUser] = await db.select().from(users).where(eq(users.id, targetId));
+      const [targetUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, targetId));
 
       if (!targetUser) {
         return reply.status(404).send({ error: "Usuario no encontrado" });
@@ -55,7 +66,9 @@ export default async function userRoutes(fastify: FastifyInstance) {
           .where(and(eq(users.role, "admin"), ne(users.id, targetId)));
 
         if (adminCount.length === 0) {
-          return reply.status(400).send({ error: "Debe quedar al menos un administrador" });
+          return reply
+            .status(400)
+            .send({ error: "Debe quedar al menos un administrador" });
         }
       }
 
@@ -66,7 +79,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
         .returning({ id: users.id, email: users.email, role: users.role });
 
       return reply.send({ user: updated });
-    }
+    },
   );
 
   // Eliminar un usuario
@@ -76,13 +89,22 @@ export default async function userRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { id } = request.params as { id: string };
       const currentUser = (request as any).user as SessionPayload;
-      const targetId = Number(id);
+      const targetId = parseId(id);
 
-      if (targetId === currentUser.userId) {
-        return reply.status(400).send({ error: "No puedes eliminar tu propia cuenta" });
+      if (targetId === null) {
+        return reply.status(400).send({ error: "ID inválido" });
       }
 
-      const [targetUser] = await db.select().from(users).where(eq(users.id, targetId));
+      if (targetId === currentUser.userId) {
+        return reply
+          .status(400)
+          .send({ error: "No puedes eliminar tu propia cuenta" });
+      }
+
+      const [targetUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, targetId));
 
       if (!targetUser) {
         return reply.status(404).send({ error: "Usuario no encontrado" });
@@ -95,13 +117,15 @@ export default async function userRoutes(fastify: FastifyInstance) {
           .where(and(eq(users.role, "admin"), ne(users.id, targetId)));
 
         if (adminCount.length === 0) {
-          return reply.status(400).send({ error: "No puedes eliminar al último administrador" });
+          return reply
+            .status(400)
+            .send({ error: "No puedes eliminar al último administrador" });
         }
       }
 
       await db.delete(users).where(eq(users.id, targetId));
 
       return reply.send({ ok: true });
-    }
+    },
   );
 }

@@ -4,6 +4,7 @@ import { eq, isNull } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { invitations } from "../db/schema.js";
 import { requireAdmin, type SessionPayload } from "../utils/auth-guards.js";
+import { parseId } from "../utils/validations.js";
 
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN!;
 const INVITATION_EXPIRY_HOURS = 48;
@@ -70,7 +71,11 @@ export default async function invitationRoutes(fastify: FastifyInstance) {
     { preHandler: requireAdmin },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const invitationId = Number(id);
+      const invitationId = parseId(id);
+
+      if (invitationId === null) {
+        return reply.status(400).send({ error: "ID inválido" });
+      }
 
       const [invitation] = await db
         .select()
