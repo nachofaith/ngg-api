@@ -10,49 +10,64 @@ const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN!;
 const isProduction = process.env.NODE_ENV === "production";
 
 export default async function authRoutes(fastify: FastifyInstance) {
-  fastify.post("/login", async (request, reply) => {
-    const { email, password } = request.body as {
-      email?: string;
-      password?: string;
-    };
+  fastify.post(
+    "/login",
+    {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: "1 minute",
+        },
+      },
+    },
 
-    if (!email || !password) {
-      return reply
-        .status(400)
-        .send({ error: "Email y password son requeridos" });
-    }
+    async (request, reply) => {
+      const { email, password } = request.body as {
+        email?: string;
+        password?: string;
+      };
 
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+      if (!email || !password) {
+        return reply
+          .status(400)
+          .send({ error: "Email y password son requeridos" });
+      }
 
-    if (!user) {
-      return reply.status(401).send({ error: "Credenciales inválidas" });
-    }
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email));
 
-    const isValid = await comparePassword(password, user.passwordHash);
+      if (!user) {
+        return reply.status(401).send({ error: "Credenciales inválidas" });
+      }
 
-    if (!isValid) {
-      return reply.status(401).send({ error: "Credenciales inválidas" });
-    }
+      const isValid = await comparePassword(password, user.passwordHash);
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: "7d" },
-    );
+      if (!isValid) {
+        return reply.status(401).send({ error: "Credenciales inválidas" });
+      }
 
-    reply.setCookie("session", token, {
-      domain: COOKIE_DOMAIN,
-      path: "/",
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+      const token = jwt.sign(
+        { userId: user.id, email: user.email, role: user.role },
+        JWT_SECRET,
+        { expiresIn: "7d" },
+      );
 
-    return reply.send({
-      user: { id: user.id, email: user.email, role: user.role },
-    });
-  });
+      reply.setCookie("session", token, {
+        domain: COOKIE_DOMAIN,
+        path: "/",
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7,
+      });
+
+      return reply.send({
+        user: { id: user.id, email: user.email, role: user.role },
+      });
+    },
+  );
 
   fastify.post("/register", async (request, reply) => {
     const { token, password } = request.body as {
