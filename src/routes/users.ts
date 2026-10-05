@@ -3,7 +3,7 @@ import { eq, ne, and } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { users } from "../db/schema.js";
 import { requireAdmin, type SessionPayload } from "../utils/auth-guards.js";
-import { parseId } from "../utils/validations.js";
+import { parseId } from "../utils/validation.js";
 
 export default async function userRoutes(fastify: FastifyInstance) {
   // Listar todos los usuarios
