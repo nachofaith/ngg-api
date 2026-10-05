@@ -4,7 +4,7 @@ import { eq, isNull } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { invitations } from "../db/schema.js";
 import { requireAdmin, type SessionPayload } from "../utils/auth-guards.js";
-import { parseId } from "../utils/validations.js";
+import { parseId } from "../utils/validation.js";
 
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN!;
 const INVITATION_EXPIRY_HOURS = 48;
@@ -65,6 +65,29 @@ export default async function invitationRoutes(fastify: FastifyInstance) {
     },
   );
 
+  // Validar un token de invitación (público, usado por la página de registro)
+fastify.get("/invitations/:token", async (request, reply) => {
+  const { token } = request.params as { token: string };
+
+  const [invitation] = await db
+    .select()
+    .from(invitations)
+    .where(eq(invitations.token, token));
+
+  if (!invitation) {
+    return reply.status(404).send({ error: "Invitación no encontrada" });
+  }
+
+  if (invitation.usedAt) {
+    return reply.status(410).send({ error: "Esta invitación ya fue utilizada" });
+  }
+
+  if (invitation.expiresAt < new Date()) {
+    return reply.status(410).send({ error: "Esta invitación ha expirado" });
+  }
+
+  return reply.send({ email: invitation.email });
+});
   // Revocar (eliminar) una invitación pendiente
   fastify.delete(
     "/invitations/:id",
